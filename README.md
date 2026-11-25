@@ -1,85 +1,63 @@
 # PC Parts Price Comparison
 
-Our CSC 4402 project. It's a database of PC parts and the prices different online stores charge for them.
-You can look up a part, see which store has it cheapest, and put together a PC build. The program checks
-whether the parts in a build actually work together (right socket, enough power, GPU fits in the case, etc.).
+CSC 4402 Database Management Systems project at Louisiana State University. Browse PC parts, compare store prices, and check whether a build is compatible. The React interface and terminal app share the same SQLite database.
 
-It's written in Python 3 with SQLite, so there's nothing to install besides Python.
+## Run the website
 
-## Running it
+Use Python 3.8+ and Node.js 20.19 or later in the 20.x series, or 22.12 or later, with npm. From the repository root:
 
-You need Python 3.8 or newer. Open a terminal in this folder and run:
-
-```
-python app.py
+```sh
+npm --prefix frontend ci
+npm --prefix frontend run build
+python3 backend/server.py
 ```
 
-(On Mac/Linux it might be `python3` instead of `python`.)
+Open [http://localhost:8000](http://localhost:8000). The sample database is included, and the server uses only Python’s standard library.
 
-The database `pcparts.db` is already included and filled with sample data, so the app works right away.
+For frontend development, start the API and Vite in separate terminals:
 
-To run our test queries:
+```sh
+# Terminal 1
+python3 backend/server.py
 
+# Terminal 2
+npm --prefix frontend run dev
 ```
-python test_queries.py    # the 5 test queries from the report
-python test_rules.py      # tests for the compatibility rules and triggers
+
+Open [http://localhost:5173](http://localhost:5173). Vite proxies API requests to port 8000. Set `PORT` and `API_URL` on the server and Vite respectively to use another port. Set `PCPARTS_DB` for the server or terminal app to use a separate database file.
+
+## Try the main workflows
+
+- **Build** lets you choose and replace parts, adjust memory and storage quantities, and review compatibility and estimated power.
+- **Browse parts** supports name, brand, or model search and filters by category, price, stock, store, and specifications. Open a product to compare its store offers.
+- **My builds** lets you save and reopen builds. Sign in as `linda.johnson95` to try it. For a build with compatibility issues, sign in as `carlos.anderson88` and open **Esports Build**.
+- **Admin** lets you manage products, listings, stores, and users. Sign in as `dwhitfield`. The demo uses usernames or email addresses without passwords.
+
+Store prices, availability, and URLs are sample data. A draft can use a specific store offer. The database saves parts and quantities, so reopened builds use each part’s lowest in-stock price.
+
+## Run the terminal app and database tests
+
+```sh
+python3 backend/app.py
+python3 backend/test_queries.py
+python3 backend/test_rules.py
 ```
 
-`test_rules.py` works on a copy of the database in memory, so it doesn't change anything.
+The query script runs the five queries from the project report. The rules script tests compatibility, triggers, and constraints on an in-memory copy.
 
-If you mess up the data while trying things out, run `python generate_data.py` to rebuild the database
-from scratch. It always produces the same data.
+The terminal menu includes product search, price comparison and PC building, and admin screens for products, listings, stores, and users. Sign in with the same sample accounts as the website, or type `NEW` at the product search login prompt to create an account. Try a search like `asus 4070` or `samsung 990`.
 
-## Using the app
+To reset the bundled sample database, run `python3 backend/generate_data.py`. This replaces the bundled database, including any local edits and saved builds.
 
-When you start it you pick one of five screens. There are no passwords. You just log in with a username.
+## Repository layout
 
-1. **Product Search**: search for parts, browse a category with a price limit, and see a part's specs
-   and prices. Try logging in as `linda.johnson95`, or type `NEW` to make an account.
-2. **Price Comparison and PC Builder**: compare store prices and create or edit builds. The app shows
-   the total cost and any compatibility problems. `carlos.anderson88` has a build (#59) with some
-   problems in it, if you want to see what that looks like.
-3. **Product Management** (admin): add, edit and delete products.
-4. **Listing Management** (admin): add, update and delete store prices, and find ones that are out of date.
-5. **Store Management** (admin): manage stores and user accounts.
-
-For the admin screens, log in as `dwhitfield`.
-
-When searching, you don't need the exact name. Typing a few words like `asus 4070` or `samsung 990`
-works, and it can handle small typos too. Wherever the app asks for a product, you can type its id
-or part of its name.
-
-## Files
-
-- `schema.sql`: all the tables, constraints, triggers and views
-- `generate_data.py`: creates `pcparts.db` and fills it with sample data
-- `queries.sql` / `test_queries.py`: our 5 test queries
-- `test_rules.py`: extra tests
-- `app.py`: the main menu
-- `search_ui.py`, `compare_ui.py`, `product_ui.py`, `listing_ui.py`, `store_ui.py`: the five screens
-- `db.py`, `catalog.py`: shared code used by the screens
+- `frontend/` — React, Tailwind CSS, and Vite.
+- `backend/` — Python API and terminal app, SQLite schema and sample data, and database tests.
 
 ## Database design
 
-The main tables come from our ER diagram: `categories`, `products`, `stores`, `users` and `listings`.
-A listing is one store's price for one product. We also added a spec table for each type of part
-(cpu, gpu, ram, ...) and `builds` / `build_items` for saved PC builds.
+The main tables are `categories`, `products`, `stores`, `users`, and `listings`. A listing records one store’s price for one product. Category-specific tables store technical specifications. `builds` and `build_items` store saved parts lists.
 
-The compatibility check is a view called `v_build_issues`. It has one query for each of our 13 rules
-and lists every problem in every build. Problems are marked as either an error or a warning (a warning
-means a required part is missing). `v_best_price` finds the cheapest in-stock price for each product,
-and `v_build_total` uses it to price a build.
+The `v_build_issues` view evaluates 13 compatibility rules and reports errors or missing required parts. `v_best_price` finds the lowest in-stock offer, and `v_build_total` uses those prices to calculate build totals. The builder checks draft compatibility with a temporary build in a transaction and rolls it back after reading the view.
 
-When you add a part to a build, the app tries each possible part inside a transaction, checks whether
-it causes new errors, and then rolls it back. That way it only suggests parts that fit.
-
-Some rules are enforced with triggers:
-- only admins can add listings
-- a listing's `last_updated` time updates automatically when it changes
-- a spec row has to match the product's category (e.g. you can't give a CPU a GPU spec)
-- a build can only have one of each single-slot part (one CPU, one motherboard, etc.)
-
-## Notes
-
-All the data is made up. The product names are real, but the specs and prices are only approximate.
-Store websites use `.example` addresses so they don't point anywhere real.
+Triggers enforce admin-only listing creation, update listing timestamps, check that specifications match the product category, and allow only one part in each single-slot category.

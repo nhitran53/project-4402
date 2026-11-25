@@ -18,7 +18,7 @@ class UserError(Exception):
 
 def connect():
     if not os.path.exists(DB_PATH):
-        sys.exit(f"Database not found at {DB_PATH}\nCreate it first with:  python3 generate_data.py")
+        sys.exit(f"Database not found at {DB_PATH}\nCreate it with: python3 backend/generate_data.py")
     con = sqlite3.connect(DB_PATH, isolation_level=None)   # autocommit; tx() groups statements
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
